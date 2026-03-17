@@ -87,23 +87,20 @@ def clean_text(text):
 # Helper functions
 # -----------------------------
 def get_side_effects(medicine_name):
-    row = medicine_df[medicine_df['Medicine Name'].str.lower() == medicine_name.lower()]
-    if len(row) > 0:
+    rows = medicine_df[medicine_df['Medicine Name'].str.lower() == medicine_name.lower()]
+    if not rows.empty:
         # Return the first non-empty side effect found
-        if 'Side Effects' in row.columns:
-            for effect in row['Side Effects'].values:
-                if isinstance(effect, str) and len(effect) > 3:
+        if 'Side Effects' in rows.columns:
+            for effect in rows['Side Effects'].values:
+                if isinstance(effect, str) and len(effect) > 3 and effect.lower() != 'not available':
                     return effect
-        return "Side effect data not available"
-    else:
-        return "Side effect data not available"
+    return "Side effect data not available"
 
 def get_substitute(medicine_name):
-    row = medicine_df[medicine_df['Medicine Name'].str.lower() == medicine_name.lower()]
-    if len(row) > 0 and 'substitute' in row.columns:
-        # Return the first non-empty substitute found
-        for sub in row['substitute'].values:
-            if isinstance(sub, str) and len(sub) > 1:
+    rows = medicine_df[medicine_df['Medicine Name'].str.lower() == medicine_name.lower()]
+    if not rows.empty and 'Substitute' in rows.columns:
+        for sub in rows['Substitute'].values:
+            if isinstance(sub, str) and len(sub) > 3 and sub.lower() != 'not available':
                 return sub
     return "No substitute information available"
 

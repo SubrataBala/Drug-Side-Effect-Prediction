@@ -30,27 +30,17 @@ models_dir = os.path.join(script_dir, "saved_models")
 if not os.path.exists(models_dir):
     os.makedirs(models_dir)
 
-print("Loading datasets...")
-print(f"Looking for datasets in: {os.path.abspath(data_dir)}")
+print("Loading dataset...")
+target_csv = os.path.join(data_dir, "specific_medicine_data.csv")
+print(f"Attempting to load: {os.path.abspath(target_csv)}")
 
-if not os.path.exists(data_dir):
-    print(f"Error: Data directory not found at {data_dir}. Please check the path.")
+if not os.path.exists(target_csv):
+    print(f"❌ Error: Training file '{os.path.basename(target_csv)}' not found in '{os.path.abspath(data_dir)}'.")
+    print("   Please run 'extract_specific_data.py' and 'clean_data.py' first to generate it.")
     exit(1)
 
-csv_files = []
-cleaned_file_path = os.path.join(data_dir, "cleaned_medicine_data.csv")
-remaining_file_path = os.path.join(data_dir, "remaining_data.csv")
-
-for root, dirs, files in os.walk(data_dir):
-    for file in files:
-        if file.lower().endswith('.csv'):
-            full_path = os.path.join(root, file)
-            # Skip remaining_data.csv to keep it for later as requested
-            if os.path.abspath(full_path) == os.path.abspath(remaining_file_path):
-                continue
-            csv_files.append(full_path)
-
-print(f"Found {len(csv_files)} CSV files.")
+csv_files = [target_csv]
+print(f"✅ Found target training file: {os.path.basename(target_csv)}")
 
 # ---------------------------------------------------------
 # STEP 1: First Pass - Find all unique Medicine Names
@@ -105,62 +95,43 @@ print(f"✅ Found {len(all_classes)} unique medicines to predict.")
 # ---------------------------------------------------------
 # STEP 2: Initialize Model for Incremental Learning
 # ---------------------------------------------------------
-# HashingVectorizer is stateless and works well for training file-by-file.
-# alternate_sign=False ensures non-negative values for Naive Bayes.
-# Reduced n_features to 1000 to prevent Out of Memory (OOM) errors given the large number of classes (225k+)
+# HashingVectorizer is used as it's stateless and memory-efficient.
+# alternate_sign=False is recommended for models like MultinomialNB that expect non-negative features.
+# n_features is set to 1000; this can be tuned. A larger value may reduce collisions but increase memory usage.
 vectorizer = HashingVectorizer(stop_words='english', alternate_sign=False, n_features=1000)
 model = MultinomialNB()
 
 # ---------------------------------------------------------
 # STEP 3: Second Pass - Train on each file sequentially
 # ---------------------------------------------------------
-print("\n🚀 Pass 2: Starting incremental training (one file at a time)...")
+print(f"\n🚀 Pass 2: Starting model training on {os.path.basename(target_csv)}...")
 
-for i, file_path in enumerate(csv_files):
-    print(f"[{i+1}/{len(csv_files)}] Training on {os.path.basename(file_path)}...")
-    
-    try:
-        df = pd.read_csv(file_path, low_memory=False)
-        df.columns = df.columns.str.strip()
+try:
+    df = pd.read_csv(target_csv, low_memory=False)
+    df.columns = df.columns.str.strip()
 
-        # Apply same column normalization
-        for col in ['Drug', 'Drug Name', 'drugName', 'Medicine', 'drug', 'Drug_Name', 'medicine', 'drug_name', 'name', 'Name']:
-            if col in df.columns:
-                df.rename(columns={col: 'Medicine Name'}, inplace=True)
-        
-        if 'Medicine Name' not in df.columns:
-            continue
+    # Apply same column normalization
+    for col in ['Drug', 'Drug Name', 'drugName', 'Medicine', 'drug', 'Drug_Name', 'medicine', 'drug_name', 'name', 'Name']:
+        if col in df.columns:
+            df.rename(columns={col: 'Medicine Name'}, inplace=True)
 
+    if 'Medicine Name' in df.columns:
         df = df.dropna(subset=['Medicine Name'])
 
-        # Check if we need to split (only for cleaned_medicine_data.csv)
-        if "cleaned_medicine_data.csv" in file_path:
-            print("⚠️ Applying 75,000 row limit for training...")
-            remaining_df = df.iloc[75000:]
-            df = df.iloc[:75000]
-            
-            if not remaining_df.empty:
-                remaining_path = os.path.join(data_dir, "remaining_data.csv")
-                remaining_df.to_csv(remaining_path, index=False)
-                print(f"💾 Saved {len(remaining_df)} remaining rows to {remaining_path} for later.")
-        
         # Prepare Features
         exclude_cols = ['Medicine Name', 'Excellent Review %', 'Average Review %', 'Poor Review %']
         feature_cols = [col for col in df.columns if col not in exclude_cols and df[col].dtype == 'object']
-        
         df[feature_cols] = df[feature_cols].fillna('')
 
         # Process in batches to save memory
         batch_size = 5000
         print(f"   Processing in batches of {batch_size} rows...")
-
         for start in range(0, len(df), batch_size):
             end = min(start + batch_size, len(df))
             df_batch = df.iloc[start:end].copy()
 
             df_batch['combined_text'] = df_batch[feature_cols].apply(lambda row: ' '.join(row.values.astype(str)), axis=1)
             df_batch['clean_text'] = df_batch['combined_text'].apply(clean_text)
-
             X_batch = vectorizer.transform(df_batch['clean_text'])
             y_batch = df_batch['Medicine Name']
             
@@ -168,12 +139,10 @@ for i, file_path in enumerate(csv_files):
             
             del df_batch, X_batch, y_batch
             gc.collect()
-
-        del df
-        gc.collect()
-
-    except Exception as e:
-        print(f"⚠️ Error training on {os.path.basename(file_path)}: {e}")
+    else:
+        print(f"⚠️ 'Medicine Name' column not found in {os.path.basename(target_csv)}. Skipping.")
+except Exception as e:
+    print(f"⚠️ Error training on {os.path.basename(target_csv)}: {e}")
 
 # Save Models
 print(f"Saving models to {models_dir}...")

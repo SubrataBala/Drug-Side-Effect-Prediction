@@ -73,8 +73,12 @@ def run_prediction():
         prediction = model.predict(features)[0]
         
         # Get Side Effects
-        side_effect = side_effects_map.get(prediction, "Information not available")
-        
+        side_effect_raw = side_effects_map.get(prediction)
+        # Check if the retrieved side effect is a valid, meaningful string
+        if not side_effect_raw or side_effect_raw.lower() == 'not available':
+            side_effect = "Information not available"
+        else:
+            side_effect = side_effect_raw
         # 4. Get Confidence (Probability)
         try:
             probs = model.predict_proba(features)

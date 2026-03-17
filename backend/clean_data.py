@@ -49,9 +49,9 @@ def run_cleaning():
             
         # Fill missing values for better UX
         if 'Side Effects' in df.columns:
-            df['Side Effects'] = df['Side Effects'].fillna("Information not available")
+            df['Side Effects'] = df['Side Effects'].fillna("Not Available")
         if 'Substitute' in df.columns:
-            df['Substitute'] = df['Substitute'].fillna("No substitute available")
+            df['Substitute'] = df['Substitute'].fillna("Not Available")
     
         final_count = len(df)
         print(f"   Rows after cleaning: {final_count} (Removed {initial_count - final_count} duplicates/empty rows)")

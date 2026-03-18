@@ -150,3 +150,6 @@ if st.button("🔍 Predict Medicine"):
 
         st.markdown("---")
         st.caption("⚠️ Disclaimer: This system provides AI-based suggestions only. Please consult a doctor before taking any medicine.")
+
+
+

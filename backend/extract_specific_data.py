@@ -1,64 +1,42 @@
 import pandas as pd
 import os
+import json
 
 # Define paths
 script_dir = os.path.dirname(os.path.abspath(__file__))
 data_dir = os.path.join(script_dir, "../data")
-input_file = os.path.join(data_dir, "cleaned_medicine_data.csv")
+config_file = os.path.join(script_dir, "config.json")
 output_file = os.path.join(data_dir, "specific_medicine_data.csv")
 
-# List of medicines provided in your instruction
-target_medicines = [
-    # List 1: Major Diseases
-    "Metformin", "Glimepiride", "Sitagliptin",
-    "Amlodipine", "Losartan", "Atenolol",
-    "Aspirin", "Clopidogrel", "Atorvastatin",
-    "Isoniazid", "Rifampicin", "Ethambutol",
-    "Salbutamol Inhaler", "Budesonide", "Formoterol",
-    "Cisplatin", "Carboplatin", "Paclitaxel",
-    "Paracetamol", "Acetaminophen",
-    "Chloroquine", "Artemether-Lumefantrine",
-    "Levothyroxine", "Liothyronine",
-    "Sertraline", "Fluoxetine", "Escitalopram",
-    
-    # List 2: Common Diseases
-    "Cetirizine", "Loratadine",
-    "Sumatriptan", "Rizatriptan",
-    "ORS", "Zinc Tablets",
-    "Omeprazole", "Pantoprazole",
-    "Nitrofurantoin", "Ciprofloxacin",
-    "Levocetirizine",
-    "Loperamide",
-    "Ibuprofen", "Diclofenac",
-    "Ciprofloxacin Eye Drops", "Ofloxacin Eye Drops"
-]
-
-# Mapping of medicines to their substitutes based on your list
-substitutes_mapping = {
-    "Metformin": "Glimepiride, Sitagliptin",
-    "Amlodipine": "Losartan, Atenolol",
-    "Aspirin": "Clopidogrel, Atorvastatin",
-    "Isoniazid": "Rifampicin, Ethambutol",
-    "Salbutamol Inhaler": "Budesonide, Formoterol",
-    "Cisplatin": "Carboplatin, Paclitaxel",
-    "Paracetamol": "Acetaminophen",
-    "Chloroquine": "Artemether-Lumefantrine",
-    "Levothyroxine": "Liothyronine",
-    "Sertraline": "Fluoxetine, Escitalopram",
-    "Cetirizine": "Loratadine, Levocetirizine",
-    "Sumatriptan": "Rizatriptan",
-    "ORS": "Zinc Tablets, Loperamide",
-    "Omeprazole": "Pantoprazole",
-    "Nitrofurantoin": "Ciprofloxacin",
-    "Ibuprofen": "Diclofenac",
-    "Ciprofloxacin Eye Drops": "Ofloxacin Eye Drops"
-}
+def load_config():
+    """Loads the configuration from the JSON file."""
+    if not os.path.exists(config_file):
+        print(f"❌ Error: Config file '{config_file}' not found.")
+        return None, None, 1500, None # Default rows
+    try:
+        with open(config_file, 'r') as f:
+            config = json.load(f)
+        return (config.get("target_medicines", []), 
+                config.get("substitutes_mapping", {}), 
+                config.get("target_rows", 1500),
+                config.get("source_csv_filename"))
+    except Exception as e:
+        print(f"❌ Error reading config file: {e}")
+        return None, None, None, None
 
 def extract_and_save():
+    # Load configuration
+    target_medicines, substitutes_mapping, target_rows, source_csv = load_config()
+    input_file = os.path.join(data_dir, source_csv) if source_csv else None
+
     # Check if input file exists
-    if not os.path.exists(input_file):
-        print(f"❌ Error: Input file '{input_file}' not found.")
-        print("   Please run 'clean_data.py' first or ensure the file exists.")
+    if not input_file or not os.path.exists(input_file):
+        print(f"❌ Error: Source CSV file not found at '{input_file}'.")
+        print("   Please ensure the file name in 'backend/config.json' is correct and the file is in the 'data/' directory.")
+        return
+
+    if not target_medicines:
+        print("❌ No target medicines found in config. Exiting.")
         return
 
     print(f"📖 Reading '{input_file}'...")
@@ -67,6 +45,28 @@ def extract_and_save():
     except Exception as e:
         print(f"❌ Error reading CSV: {e}")
         return
+
+    # --- NEW: Pre-process the specific format of final_ultra_clean_dataset.csv ---
+    print("⚙️ Pre-processing 'final_ultra_clean_dataset.csv' format...")
+
+    # 1. Combine side effect columns
+    side_effect_cols = [f'sideEffect{i}' for i in range(5)]
+    # Ensure columns exist before trying to combine
+    existing_se_cols = [col for col in side_effect_cols if col in df.columns]
+    if existing_se_cols:
+        # Convert to string, fill NaNs with empty string, and join
+        df['Side Effects'] = df[existing_se_cols].astype(str).fillna('').agg(', '.join, axis=1)
+        # Clean up the joined string: remove trailing commas/spaces, 'nan' strings
+        df['Side Effects'] = df['Side Effects'].str.replace(r'\b(nan|None)\b', '', regex=True).str.replace(r'(, )+', ', ', regex=True).str.strip(', ')
+        print("   ✅ Combined multiple 'sideEffect' columns into a single 'Side Effects' column.")
+
+    # 2. Combine 'InteractsWith' columns for later use
+    interacts_with_cols = [f'InteractsWith{i}' for i in range(3)]
+    existing_iw_cols = [col for col in interacts_with_cols if col in df.columns]
+    if existing_iw_cols:
+        df['Interacts With'] = df[existing_iw_cols].astype(str).fillna('').agg(', '.join, axis=1)
+        df['Interacts With'] = df['Interacts With'].str.replace(r'\b(nan|None)\b', '', regex=True).str.replace(r'(, )+', ', ', regex=True).str.strip(', ')
+        print("   ✅ Combined multiple 'InteractsWith' columns into a single 'Interacts With' column.")
 
     # Normalize column names in the CSV
     df.columns = df.columns.str.strip()
@@ -128,11 +128,10 @@ def extract_and_save():
             if mask.any():
                 filtered_df.loc[mask, 'Substitute'] = valid_subs_str
 
-    # Ensure we have exactly 1500 rows
-    target_rows = 1500
     print(f"📊 Total matching rows found in source: {len(filtered_df)}")
 
-    # Sample 1500 rows (with replacement if we have fewer than 1500, without if we have more)
+    # Sample rows (with replacement if we have fewer rows than target, without if we have more)
+    print(f"🎯 Sampling to get {target_rows} rows for the final dataset...")
     replace_flag = len(filtered_df) < target_rows
     final_df = filtered_df.sample(n=target_rows, replace=replace_flag, random_state=42)
 

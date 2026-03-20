@@ -383,6 +383,48 @@
             color: var(--text-muted);
         }
         
+        /* New styles for grouped medicine list */
+        .disease-medicine-group {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: rgba(10, 14, 26, 0.4);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+
+        .disease-group-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .medicines-for-disease {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .add-medicine-btn-small {
+            padding: 0.5rem 1rem;
+            background: rgba(0, 217, 255, 0.1);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .add-medicine-btn-small:hover {
+            background: rgba(0, 217, 255, 0.2);
+        }
+        
         /* Medicine List */
         .medicine-list {
             display: flex;
@@ -899,29 +941,10 @@
                         </label>
                     </div>
                     
-                    <div class="checkbox-card">
-                        <input type="checkbox" id="disease-other" value="Other">
-                        <label class="checkbox-label" for="disease-other">
-                            <div class="checkbox-icon"></div>
-                            <div class="checkbox-text">
-                                <div class="checkbox-title">Other</div>
-                                <div class="checkbox-desc">Enter manually</div>
-                            </div>
-                        </label>
-                    </div>
-                </div>
-                
-                <!-- Other Disease Input (shown when "Other" is selected) -->
-                <div class="form-group" id="otherDiseaseContainer" style="display: none; margin-top: 2rem;">
-                    <label class="form-label">Enter Other Disease(s)</label>
-                    <input type="text" class="form-input" id="otherDiseaseInput" placeholder="Type disease name (e.g., Epilepsy, Psoriasis)">
-                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.5rem;">
-                        💡 Separate multiple diseases with commas
-                    </p>
                 </div>
                 
                 <div class="button-group">
-                    <button class="btn btn-secondary" onclick="window.location.href='index.html'">Cancel</button>
+                    <button class="btn btn-secondary" onclick="window.location.href='/'">Cancel</button>
                     <button class="btn btn-primary" onclick="nextStep()">Next Step →</button>
                 </div>
             </div>
@@ -929,21 +952,11 @@
             <!-- Step 2: Current Medications -->
             <div class="step-content" data-step="2">
                 <h2 class="form-section-title">Current Medications</h2>
-                <p class="form-section-subtitle">List all medicines you're currently taking</p>
+                <p class="form-section-subtitle">List all medicines you're currently taking for the diseases you selected</p>
                 
                 <div class="medicine-list" id="medicineList">
-                    <div class="medicine-item">
-                        <input type="text" class="form-input medicine-input" placeholder="Enter medicine name (e.g., Lisinopril)">
-                        <select class="form-select disease-select">
-                            <option value="">For which disease?</option>
-                        </select>
-                        <button class="remove-btn" onclick="removeMedicine(this)" style="display: none;">✕</button>
-                    </div>
+                    <!-- This will be dynamically populated based on Step 1 selections -->
                 </div>
-                
-                <button class="add-medicine-btn" onclick="addMedicine()">
-                    <span>➕</span> Add Another Medicine
-                </button>
                 
                 <div class="button-group">
                     <button class="btn btn-secondary" onclick="prevStep()">← Previous</button>
@@ -1026,88 +1039,23 @@
         let currentStep = 1;
         let selectedDiseases = [];
         let currentMedicines = [];
+        let medicineDatabase = {}; // Will be populated from the backend
         
-        // Handle "Other" disease checkbox
-        document.getElementById('disease-other').addEventListener('change', function() {
-            const otherContainer = document.getElementById('otherDiseaseContainer');
-            if (this.checked) {
-                otherContainer.style.display = 'block';
-            } else {
-                otherContainer.style.display = 'none';
-                document.getElementById('otherDiseaseInput').value = '';
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                const response = await fetch('/api/disease_medicines');
+                if (!response.ok) {
+                    throw new Error('Failed to load medicine suggestions from the backend.');
+                }
+                medicineDatabase = await response.json();
+                console.log('Medicine suggestions loaded successfully from backend.');
+            } catch (error) {
+                console.error('Error fetching medicine database:', error);
+                alert('Could not load medicine suggestions. Please check the server and try again.');
             }
+
+            updateProgress();
         });
-        
-        // Sample medicine database for each disease
-        const medicineDatabase = {
-            'Diabetes': ['Metformin', 'Glipizide', 'Insulin', 'Sitagliptin', 'Empagliflozin'],
-            'Hypertension': ['Amlodipine', 'Losartan', 'Atenolol', 'Lisinopril', 'Metoprolol'],
-            'Heart Disease': ['Aspirin', 'Atorvastatin', 'Clopidogrel', 'Warfarin', 'Carvedilol'],
-            'Tuberculosis': ['Isoniazid', 'Rifampicin', 'Ethambutol'],
-            'Asthma': ['Albuterol', 'Fluticasone', 'Montelukast', 'Budesonide'],
-            'Cancer': ['Cisplatin', 'Carboplatin', 'Paclitaxel'],
-            'Dengue': ['Paracetamol', 'Acetaminophen'],
-            'Malaria': ['Chloroquine', 'Artemether-Lumefantrine'],
-            'Thyroid Disorder': ['Levothyroxine', 'Liothyronine', 'Methimazole'],
-            'Mental Health Disorders': ['Sertraline', 'Fluoxetine', 'Escitalopram']
-        };
-        
-        // Sample predicted medicines for new conditions
-        const predictedMedicines = {
-            'Diabetes': ['Metformin', 'Glimepiride', 'Sitagliptin'],
-            'Hypertension': ['Amlodipine', 'Losartan', 'Atenolol'],
-            'Heart Disease': ['Aspirin', 'Clopidogrel', 'Atorvastatin'],
-            'Tuberculosis': ['Isoniazid', 'Rifampicin', 'Ethambutol'],
-            'Asthma': ['Salbutamol Inhaler', 'Budesonide', 'Formoterol'],
-            'Cancer': ['Cisplatin', 'Carboplatin', 'Paclitaxel'],
-            'Dengue': ['Paracetamol', 'Acetaminophen'],
-            'Malaria': ['Chloroquine', 'Artemether-Lumefantrine'],
-            'Thyroid Disorder': ['Levothyroxine', 'Liothyronine'],
-            'Mental Health Disorders': ['Sertraline', 'Fluoxetine', 'Escitalopram']
-        };
-        
-        // Sample side effects database
-        const sideEffectsDatabase = {
-            'Acetaminophen': [
-                { effect: 'Liver damage (with overdose)', severity: 'high' },
-                { effect: 'Nausea', severity: 'low' },
-                { effect: 'Skin rash', severity: 'medium' }
-            ],
-            'Ibuprofen': [
-                { effect: 'Stomach upset', severity: 'medium' },
-                { effect: 'Increased blood pressure', severity: 'high' },
-                { effect: 'Kidney problems', severity: 'high' },
-                { effect: 'Dizziness', severity: 'low' }
-            ],
-            'Amoxicillin': [
-                { effect: 'Diarrhea', severity: 'medium' },
-                { effect: 'Allergic reaction', severity: 'high' },
-                { effect: 'Nausea', severity: 'low' }
-            ],
-            'Lisinopril': [
-                { effect: 'Dry cough', severity: 'medium' },
-                { effect: 'Dizziness', severity: 'medium' },
-                { effect: 'High potassium', severity: 'high' }
-            ],
-            'Metformin': [
-                { effect: 'Nausea', severity: 'medium' },
-                { effect: 'Diarrhea', severity: 'medium' },
-                { effect: 'Vitamin B12 deficiency', severity: 'low' }
-            ],
-            'Aspirin': [
-                { effect: 'Stomach bleeding', severity: 'high' },
-                { effect: 'Bruising', severity: 'medium' },
-                { effect: 'Ringing in ears', severity: 'low' }
-            ]
-        };
-        
-        // Drug interactions database
-        const interactionsDatabase = {
-            'Ibuprofen+Lisinopril': 'May reduce effectiveness of blood pressure medication',
-            'Ibuprofen+Aspirin': 'Increased risk of stomach bleeding',
-            'Aspirin+Warfarin': 'Dangerously increased bleeding risk',
-            'Metformin+Furosemide': 'May increase risk of lactic acidosis'
-        };
         
         // Update progress
         function updateProgress() {
@@ -1134,69 +1082,75 @@
         
         // Next step
         function nextStep() {
-            if (currentStep === 1) {
+            if (currentStep === 1) { // Logic for moving from Step 1 to Step 2
                 // Validate diseases selection
                 const checkboxes = document.querySelectorAll('#diseasesGrid input[type="checkbox"]:checked');
                 selectedDiseases = Array.from(checkboxes).map(cb => cb.value);
                 
-                // Handle "Other" diseases
-                const otherCheckbox = document.getElementById('disease-other');
-                if (otherCheckbox.checked) {
-                    const otherInput = document.getElementById('otherDiseaseInput').value.trim();
-                    if (otherInput) {
-                        // Split by comma and add each disease
-                        const otherDiseases = otherInput.split(',').map(d => d.trim()).filter(d => d);
-                        // Remove "Other" from list and add custom diseases
-                        selectedDiseases = selectedDiseases.filter(d => d !== 'Other');
-                        selectedDiseases = [...selectedDiseases, ...otherDiseases];
-                    } else {
-                        alert('Please enter at least one disease in the "Other" field or uncheck it');
-                        return;
-                    }
-                }
-                
                 if (selectedDiseases.length === 0) {
                     alert('Please select at least one ongoing disease');
-                    return;
+                    return; // Stop if no disease is selected
                 }
                 
-                // Update disease dropdowns in medicine list
-                updateDiseaseDropdowns();
-            } else if (currentStep === 2) {
-                // Validate medicines
-                const medicineInputs = document.querySelectorAll('.medicine-input');
-                currentMedicines = [];
-                
-                medicineInputs.forEach((input, index) => {
-                    const medicineName = input.value.trim();
-                    const diseaseSelect = document.querySelectorAll('.disease-select')[index];
-                    const disease = diseaseSelect.value;
+                // --- Dynamically build Step 2 UI ---
+                const medicineListContainer = document.getElementById('medicineList');
+                medicineListContainer.innerHTML = ''; // Clear previous structure
+
+                selectedDiseases.forEach(disease => {
+                    const diseaseGroup = document.createElement('div');
+                    diseaseGroup.className = 'disease-medicine-group';
                     
-                    if (medicineName && disease) {
-                        currentMedicines.push({
-                            name: medicineName,
-                            disease: disease
-                        });
-                    }
+                    const uniqueDatalistId = 'suggestions-' + disease.replace(/\s+/g, '-');
+
+                    diseaseGroup.innerHTML = `
+                        <h3 class="disease-group-title">For: ${disease}</h3>
+                        <div class="medicines-for-disease" data-disease="${disease}">
+                            <div class="medicine-item">
+                                <input type="text" class="form-input medicine-input" placeholder="Enter medicine for ${disease}" list="${uniqueDatalistId}">
+                                <datalist id="${uniqueDatalistId}"></datalist>
+                                <button class="remove-btn" onclick="removeMedicine(this)" style="display: none;">✕</button>
+                            </div>
+                        </div>
+                        <button class="add-medicine-btn-small" onclick="addMedicineToGroup('${disease}', '${uniqueDatalistId}')">
+                            <span>➕</span> Add Another Medicine for ${disease}
+                        </button>
+                    `;
+                    medicineListContainer.appendChild(diseaseGroup);
+
+                    // Populate suggestions for the first input
+                    const firstInput = diseaseGroup.querySelector('.medicine-input');
+                    updateMedicineSuggestionsForInput(firstInput, disease);
                 });
+
+                // --- Transition to Step 2 ---
+                document.querySelector('.step-content[data-step="1"]').classList.remove('active');
+                currentStep = 2;
+                document.querySelector('.step-content[data-step="2"]').classList.add('active');
                 
-                if (currentMedicines.length === 0) {
-                    alert('Please add at least one medicine with its associated disease');
-                    return;
-                }
+            } else if (currentStep === 2) { // Logic for moving from Step 2 to Step 3
+                // Validate medicines
+                currentMedicines = [];
+                const diseaseGroups = document.querySelectorAll('.medicines-for-disease');
+                diseaseGroups.forEach(group => {
+                    const disease = group.getAttribute('data-disease');
+                    const inputs = group.querySelectorAll('.medicine-input');
+                    inputs.forEach(input => {
+                        const medicineName = input.value.trim();
+                        if (medicineName) {
+                            currentMedicines.push({ name: medicineName, disease: disease });
+                        }
+                    });
+                });
+
+                // --- Transition to Step 3 ---
+                document.querySelector('.step-content[data-step="2"]').classList.remove('active');
+                currentStep = 3;
+                document.querySelector('.step-content[data-step="3"]').classList.add('active');
             }
             
-            if (currentStep < 4) {
-                // Hide current step
-                document.querySelector(`.step-content[data-step="${currentStep}"]`).classList.remove('active');
-                
-                // Show next step
-                currentStep++;
-                document.querySelector(`.step-content[data-step="${currentStep}"]`).classList.add('active');
-                
-                updateProgress();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
+            // Update the progress bar and scroll to top after any successful step change
+            updateProgress();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
         
         // Previous step
@@ -1214,58 +1168,83 @@
             }
         }
         
-        // Update disease dropdowns
-        function updateDiseaseDropdowns() {
-            const selects = document.querySelectorAll('.disease-select');
-            selects.forEach(select => {
-                select.innerHTML = '<option value="">For which disease?</option>';
-                selectedDiseases.forEach(disease => {
-                    const option = document.createElement('option');
-                    option.value = disease;
-                    option.textContent = disease;
-                    select.appendChild(option);
-                });
-            });
-        }
-        
-        // Add medicine
-        function addMedicine() {
-            const medicineList = document.getElementById('medicineList');
+        // Add medicine to a specific disease group
+        function addMedicineToGroup(disease, datalistId) {
+            const groupContainer = document.querySelector(`.medicines-for-disease[data-disease="${disease}"]`);
+            if (!groupContainer) return;
+
             const medicineItem = document.createElement('div');
             medicineItem.className = 'medicine-item';
             medicineItem.innerHTML = `
-                <input type="text" class="form-input medicine-input" placeholder="Enter medicine name">
-                <select class="form-select disease-select">
-                    <option value="">For which disease?</option>
-                    ${selectedDiseases.map(d => `<option value="${d}">${d}</option>`).join('')}
-                </select>
+                <input type="text" class="form-input medicine-input" placeholder="Enter medicine for ${disease}" list="${datalistId}">
                 <button class="remove-btn" onclick="removeMedicine(this)">✕</button>
             `;
-            medicineList.appendChild(medicineItem);
+            groupContainer.appendChild(medicineItem);
+
+            // Show all remove buttons within this group
+            groupContainer.querySelectorAll('.remove-btn').forEach(btn => btn.style.display = 'block');
         }
         
+        // Function to update medicine suggestions based on selected disease
+        function updateMedicineSuggestionsForInput(inputElement, disease) {
+            const datalist = inputElement.nextElementSibling; // Assumes datalist is right after input
+            if (!datalist || datalist.tagName !== 'DATALIST') return;
+            
+            datalist.innerHTML = ''; // Clear previous suggestions
+            
+            if (disease && medicineDatabase[disease]) {
+                medicineDatabase[disease].forEach(medicine => {
+                    const option = document.createElement('option');
+                    option.value = medicine;
+                    datalist.appendChild(option);
+                });
+            }
+        }
+
         // Remove medicine
         function removeMedicine(btn) {
             btn.closest('.medicine-item').remove();
         }
         
         // Analyze and predict
-        function analyzePrediction() {
+        async function analyzePrediction() {
             const newCondition = document.getElementById('newCondition').value;
             const ageGroup = document.getElementById('ageGroup').value;
+            const additionalNotes = document.getElementById('additionalNotes').value;
             
             if (!newCondition || !ageGroup) {
                 alert('Please fill in all required fields');
                 return;
             }
             
+            const payload = {
+                ongoing_diseases: selectedDiseases,
+                current_medications: currentMedicines,
+                new_condition: newCondition,
+                age_group: ageGroup,
+                additional_notes: additionalNotes
+            };
+
             // Show loading
             document.getElementById('loadingOverlay').classList.add('active');
             
-            // Simulate AI processing
-            setTimeout(() => {
-                generateResults(newCondition, ageGroup);
-                
+            try {
+                const response = await fetch('/predict_drug', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                generateResults(data); // Pass the entire data object from the backend
+
                 // Hide loading
                 document.getElementById('loadingOverlay').classList.remove('active');
                 
@@ -1275,23 +1254,25 @@
                 document.getElementById('resultsContainer').classList.add('active');
                 
                 window.scrollTo({ top: 0, behavior: 'smooth' });
-            }, 3000);
+            } catch (error) {
+                console.error('Error during prediction:', error);
+                alert(`An error occurred: ${error.message}`);
+                document.getElementById('loadingOverlay').classList.remove('active');
+            }
         }
         
         // Generate results
-        function generateResults(newCondition, ageGroup) {
+        function generateResults(data) {
             const resultsGrid = document.getElementById('resultsGrid');
             resultsGrid.innerHTML = '';
             
-            // Get predicted medicines for the new condition
-            const recommendedMedicines = predictedMedicines[newCondition] || ['Generic Medicine'];
-            
             // Check for interactions
-            checkInteractions(recommendedMedicines);
+            checkInteractions(data.interactions);
             
-            // Display results for each recommended medicine
-            recommendedMedicines.forEach(medicine => {
-                const sideEffects = sideEffectsDatabase[medicine] || [
+            // Display predicted medicine
+            if (data.predicted_medicine && data.predicted_medicine.name && data.predicted_medicine.side_effects) {
+                const predictedMedicineName = data.predicted_medicine.name;
+                const predictedSideEffects = data.predicted_medicine.side_effects || [
                     { effect: 'No specific data available', severity: 'low' }
                 ];
                 
@@ -1300,13 +1281,13 @@
                 resultCard.innerHTML = `
                     <h3 class="result-card-title">
                         <span class="result-icon">💊</span>
-                        Recommended Medicine
+                        Predicted Medicine for New Condition
                     </h3>
-                    <div class="medicine-name">${medicine}</div>
-                    <div class="disease-tag">For: ${newCondition}</div>
+                    <div class="medicine-name">${predictedMedicineName}</div>
+                    <div class="disease-tag">For: ${data.new_condition}</div>
                     <h4 style="margin: 1.5rem 0 1rem; color: var(--text-secondary);">Potential Side Effects:</h4>
                     <ul class="side-effects-list">
-                        ${sideEffects.map(se => `
+                        ${predictedSideEffects.map(se => `
                             <li class="side-effect-item">
                                 <span>⚠️</span>
                                 <span>${se.effect}</span>
@@ -1316,68 +1297,63 @@
                     </ul>
                 `;
                 resultsGrid.appendChild(resultCard);
-            });
+            }
             
             // Add cards for existing medications
-            currentMedicines.forEach(med => {
-                const sideEffects = sideEffectsDatabase[med.name] || [
-                    { effect: 'Consult your doctor for specific information', severity: 'low' }
-                ];
-                
-                const resultCard = document.createElement('div');
-                resultCard.className = 'result-card';
-                resultCard.innerHTML = `
-                    <h3 class="result-card-title">
-                        <span class="result-icon">💊</span>
-                        Current Medicine
-                    </h3>
-                    <div class="medicine-name">${med.name}</div>
-                    <div class="disease-tag">For: ${med.disease}</div>
-                    <h4 style="margin: 1.5rem 0 1rem; color: var(--text-secondary);">Known Side Effects:</h4>
-                    <ul class="side-effects-list">
-                        ${sideEffects.map(se => `
-                            <li class="side-effect-item">
-                                <span>⚠️</span>
-                                <span>${se.effect}</span>
-                                <span class="severity severity-${se.severity}">${se.severity.toUpperCase()}</span>
-                            </li>
-                        `).join('')}
-                    </ul>
-                `;
-                resultsGrid.appendChild(resultCard);
-            });
+            if (data.current_medication_info && data.current_medication_info.length > 0) {
+                data.current_medication_info.forEach(medInfo => {
+                    const currentMedSideEffects = medInfo.side_effects || [
+                        { effect: 'Consult your doctor for specific information', severity: 'low' }
+                    ];
+                    
+                    const resultCard = document.createElement('div');
+                    resultCard.className = 'result-card';
+                    resultCard.innerHTML = `
+                        <h3 class="result-card-title">
+                            <span class="result-icon">💊</span>
+                            Current Medicine
+                        </h3>
+                        <div class="medicine-name">${medInfo.name}</div>
+                        <div class="disease-tag">For: ${medInfo.disease}</div>
+                        <h4 style="margin: 1.5rem 0 1rem; color: var(--text-secondary);">Known Side Effects:</h4>
+                        <ul class="side-effects-list">
+                            ${currentMedSideEffects.map(se => `
+                                <li class="side-effect-item">
+                                    <span>⚠️</span>
+                                    <span>${se.effect}</span>
+                                    <span class="severity severity-${se.severity}">${se.severity.toUpperCase()}</span>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    `;
+                    resultsGrid.appendChild(resultCard);
+                });
+            }
         }
         
         // Check for drug interactions
-        function checkInteractions(newMedicines) {
+        function checkInteractions(interactions) {
             const interactionsList = document.getElementById('interactionsList');
             const interactionsWarning = document.getElementById('interactionsWarning');
             interactionsList.innerHTML = '';
             
             let hasInteractions = false;
             
-            // Check each new medicine against current medicines
-            newMedicines.forEach(newMed => {
-                currentMedicines.forEach(currentMed => {
-                    const key1 = `${newMed}+${currentMed.name}`;
-                    const key2 = `${currentMed.name}+${newMed}`;
-                    
-                    const interaction = interactionsDatabase[key1] || interactionsDatabase[key2];
-                    
-                    if (interaction) {
-                        hasInteractions = true;
+            if (interactions && interactions.length > 0) {
+                hasInteractions = true;
+                interactions.forEach(interaction => {
+                    // Assuming interaction object has 'medicines' (e.g., "DrugA + DrugB") and 'effect'
+                    if (interaction.medicines && interaction.effect) {
                         const interactionItem = document.createElement('div');
                         interactionItem.className = 'interaction-item';
                         interactionItem.innerHTML = `
-                            <div class="interaction-medicines">
-                                ${newMed} + ${currentMed.name}
-                            </div>
-                            <div style="color: var(--text-secondary);">${interaction}</div>
+                            <div class="interaction-medicines">${interaction.medicines}</div>
+                            <div style="color: var(--text-secondary);">${interaction.effect}</div>
                         `;
                         interactionsList.appendChild(interactionItem);
                     }
                 });
-            });
+            }
             
             if (hasInteractions) {
                 interactionsWarning.style.display = 'block';
@@ -1397,15 +1373,7 @@
             
             // Reset medicine list
             const medicineList = document.getElementById('medicineList');
-            medicineList.innerHTML = `
-                <div class="medicine-item">
-                    <input type="text" class="form-input medicine-input" placeholder="Enter medicine name (e.g., Lisinopril)">
-                    <select class="form-select disease-select">
-                        <option value="">For which disease?</option>
-                    </select>
-                    <button class="remove-btn" onclick="removeMedicine(this)" style="display: none;">✕</button>
-                </div>
-            `;
+            medicineList.innerHTML = ''; // Clear dynamic content
             
             // Reset condition
             document.getElementById('newCondition').value = '';
@@ -1425,16 +1393,7 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
         
-        // Initialize
-        updateProgress();
-        
-        // Show remove button for additional medicines
-        document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('add-medicine-btn')) {
-                const removeButtons = document.querySelectorAll('.remove-btn');
-                removeButtons.forEach(btn => btn.style.display = 'block');
-            }
-        });
+        // Initialize is now handled by DOMContentLoaded
     </script>
 </body>
 </html>

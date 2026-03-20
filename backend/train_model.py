@@ -3,23 +3,13 @@ import pickle
 from sklearn.feature_extraction.text import HashingVectorizer
 from sklearn.naive_bayes import MultinomialNB
 import os
-import re
-import nltk
-from nltk.corpus import stopwords
 import gc
+import sys
 
-# Ensure resources are downloaded
-nltk.download('stopwords')
-stop_words = set(stopwords.words('english'))
+# Add the project root to the Python path to allow for absolute imports
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-def clean_text(text):
-    if not isinstance(text, str):
-        return ""
-    text = text.lower()
-    text = re.sub('[^a-zA-Z]', ' ', text)
-    words = text.split()
-    words = [w for w in words if w not in stop_words]
-    return ' '.join(words)
+from backend.utils import clean_text
 
 # Define paths relative to the script location
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -45,51 +35,41 @@ print(f"✅ Found target training file: {os.path.basename(target_csv)}")
 # ---------------------------------------------------------
 # STEP 1: First Pass - Find all unique Medicine Names
 # ---------------------------------------------------------
-print("🔍 Pass 1: Scanning all files to find unique medicines...")
-all_classes = set()
-side_effects_map = {}
+print("🔍 Scanning data to find unique medicines and side effects...")
+try:
+    # Since clean_data.py has run, we can assume the CSV is well-formed.
+    # We only need to read it once to get classes and build the side_effects_map.
+    df_for_scan = pd.read_csv(target_csv, low_memory=False)
+    
+    all_classes = sorted(list(df_for_scan['Medicine Name'].dropna().unique()))
+    
+    # Create a map of medicine names to their side effects for quick lookup later.
+    # This is more efficient than searching the dataframe in the app.
+    side_effects_map = dict(zip(df_for_scan['Medicine Name'], df_for_scan['Side Effects']))
+    
+    # Create a map for interactions for quick lookup in the app
+    interaction_map = {}
+    interaction_cols = ['Medicine Name', 'InteractionEffect', 'Interacts With']
+    if all(col in df_for_scan.columns for col in interaction_cols):
+        interaction_df = df_for_scan[interaction_cols].dropna(subset=['Medicine Name'])
+        for _, row in interaction_df.iterrows():
+            med_name = row['Medicine Name']
+            # Store interaction effect and a cleaned list of interacting drugs
+            interaction_map[med_name] = {
+                'effect': row['InteractionEffect'],
+                'interacts_with': [drug.strip() for drug in str(row['Interacts With']).split(',') if drug.strip()]
+            }
+        print("✅ Created interaction map for quick lookup.")
+    else:
+        print("⚠️ Interaction-related columns not found. Interaction map will be empty.")
 
-for file_path in csv_files:
-    try:
-        temp_df = pd.read_csv(file_path, low_memory=False)
-        temp_df.columns = temp_df.columns.str.strip() # Clean column names
-        
-        # Normalize target column name (Handle 'Drug', 'Drug Name', etc.)
-        for col in ['Drug', 'Drug Name', 'drugName', 'Medicine', 'drug', 'Drug_Name', 'medicine', 'drug_name', 'name', 'Name']:
-            if col in temp_df.columns:
-                temp_df.rename(columns={col: 'Medicine Name'}, inplace=True)
-        
-        # Normalize Side Effects column
-        for col in ['Side Effects', 'SideEffects', 'sideEffects', 'side_effects', 'sideEffect', 'SideEffect']:
-            if col in temp_df.columns:
-                temp_df.rename(columns={col: 'Side Effects'}, inplace=True)
-
-        # Normalize Substitute column
-        for col in ['Substitute', 'substitute', 'Alternative', 'alternative', 'substitutes']:
-            if col in temp_df.columns:
-                temp_df.rename(columns={col: 'Substitute'}, inplace=True)
-        
-        if 'Medicine Name' in temp_df.columns:
-            # Add unique medicines to the set
-            unique_meds = temp_df['Medicine Name'].dropna().unique()
-            all_classes.update(unique_meds)
-            
-            if 'Side Effects' in temp_df.columns:
-                # Create a mapping of Medicine Name -> Side Effects
-                temp_map = temp_df[['Medicine Name', 'Side Effects']].dropna().drop_duplicates(subset=['Medicine Name'])
-                side_effects_map.update(dict(zip(temp_map['Medicine Name'], temp_map['Side Effects'])))
-        
-        # Free memory immediately
-        del temp_df
-
-    except Exception as e:
-        print(f"Error scanning {os.path.basename(file_path)}: {e}")
+    del df_for_scan # Free up memory
+except Exception as e:
+    print(f"❌ Error during initial scan: {e}")
+    exit(1)
 
 if not all_classes:
     print("❌ No medicine data found in any file.")
-    exit(1)
-
-all_classes = sorted(list(all_classes))
 print(f"✅ Found {len(all_classes)} unique medicines to predict.")
 
 # ---------------------------------------------------------
@@ -109,12 +89,6 @@ print(f"\n🚀 Pass 2: Starting model training on {os.path.basename(target_csv)}
 try:
     df = pd.read_csv(target_csv, low_memory=False)
     df.columns = df.columns.str.strip()
-
-    # Apply same column normalization
-    for col in ['Drug', 'Drug Name', 'drugName', 'Medicine', 'drug', 'Drug_Name', 'medicine', 'drug_name', 'name', 'Name']:
-        if col in df.columns:
-            df.rename(columns={col: 'Medicine Name'}, inplace=True)
-
     if 'Medicine Name' in df.columns:
         df = df.dropna(subset=['Medicine Name'])
 
@@ -147,7 +121,8 @@ except Exception as e:
 # Save Models
 print(f"Saving models to {models_dir}...")
 pickle.dump(model, open(f"{models_dir}/drug_model.pkl", "wb"))
-pickle.dump(vectorizer, open(f"{models_dir}/tfidf_vectorizer.pkl", "wb"))
+pickle.dump(vectorizer, open(f"{models_dir}/hashing_vectorizer.pkl", "wb"))
 pickle.dump(side_effects_map, open(f"{models_dir}/side_effects_map.pkl", "wb"))
+pickle.dump(interaction_map, open(f"{models_dir}/interaction_map.pkl", "wb"))
 
 print("✅ Models regenerated successfully!")

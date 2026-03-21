@@ -155,7 +155,7 @@ def get_side_effects_via_gemini(medicine_name):
                 # If Gemini returns a non-empty list, we use it.
                 if parsed_data and "side_effects" in parsed_data and parsed_data["side_effects"]:
                     side_effects = parsed_data["side_effects"]
-                    print(f"✅ Caching Gemini-provided side effects for '{medicine_name}'.")
+                    print(f"✅ Caching provided side effects for '{medicine_name}'.")
                     medicine_info_cache[cache_key] = side_effects
                     return side_effects
                 break # Exit retry loop if we got a valid (even if empty) response
@@ -165,7 +165,7 @@ def get_side_effects_via_gemini(medicine_name):
                     time.sleep(delay)
                     delay *= 2
                 else:
-                    print(f"❌ Error getting side effects for '{medicine_name}' from Gemini: {e}")
+                    print(f"❌ Error getting side effects for '{medicine_name}' from dataset: {e}")
                     break # Exit loop on non-retriable error
 
     # Fallback strategy: Use local data if Gemini failed, was unavailable, or returned no effects

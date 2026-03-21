@@ -975,16 +975,51 @@
                     </label>
                     <select class="form-select" id="newCondition" required>
                         <option value="">-- Select Condition --</option>
-                        <option value="Diabetes">Diabetes</option>
+                        <option value="Acidity">Acidity</option>
+                        <option value="Allergic Rhinitis">Allergic Rhinitis</option>
+                        <option value="Allergies">Allergies</option>
+                        <option value="Allergy">Allergy</option>
+                        <option value="Ankylosing Spondylitis">Ankylosing Spondylitis</option>
+                        <option value="Anxiety">Anxiety</option>
+                        <option value="Anxiety and Stress (Off-label)">Anxiety and Stress (Off-label)</option>
+                        <option value="Back Pain">Back Pain</option>
+                        <option value="Bacterial Infection">Bacterial Infection</option>
+                        <option value="Bipolar Disorder (Off-label)">Bipolar Disorder (Off-label)</option>
+                        <option value="Body Dysmorphic Disorder (Off-label)">Body Dysmorphic Disorder (Off-label)</option>
+                        <option value="Borderline Personality Disorder (Off-label)">Borderline Personality Disorder (Off-label)</option>
+                        <option value="Depression">Depression</option>
+                        <option value="Dissociative Identity Disorder (Off-label)">Dissociative Identity Disorder (Off-label)</option>
+                        <option value="Fever">Fever</option>
+                        <option value="Fungal Infection">Fungal Infection</option>
+                        <option value="GERD">GERD</option>
+                        <option value="Generalized Anxiety Disorder">Generalized Anxiety Disorder</option>
+                        <option value="Generalized Anxiety Disorder (Off-label)">Generalized Anxiety Disorder (Off-label)</option>
+                        <option value="Heart condition">Heart condition</option>
+                        <option value="High Blood Pressure">High Blood Pressure</option>
+                        <option value="High Cholesterol">High Cholesterol</option>
                         <option value="Hypertension">Hypertension</option>
-                        <option value="Heart Disease">Heart Disease</option>
-                        <option value="Tuberculosis">Tuberculosis</option>
-                        <option value="Asthma">Asthma</option>
-                        <option value="Cancer">Cancer</option>
-                        <option value="Dengue">Dengue</option>
-                        <option value="Malaria">Malaria</option>
-                        <option value="Thyroid Disorder">Thyroid Disorder</option>
-                        <option value="Mental Health Disorders">Mental Health Disorders</option>
+                        <option value="Infection">Infection</option>
+                        <option value="Inflammation">Inflammation</option>
+                        <option value="Irritable Bowel Syndrome (Off-label)">Irritable Bowel Syndrome (Off-label)</option>
+                        <option value="Major Depressive Disorder">Major Depressive Disorder</option>
+                        <option value="Migraine">Migraine</option>
+                        <option value="Muscle Pain">Muscle Pain</option>
+                        <option value="Obsessive Compulsive Disorder">Obsessive Compulsive Disorder</option>
+                        <option value="Obsessive Compulsive Disorder (Off-label)">Obsessive Compulsive Disorder (Off-label)</option>
+                        <option value="Osteoarthritis">Osteoarthritis</option>
+                        <option value="Pain">Pain</option>
+                        <option value="Panic Disorder">Panic Disorder</option>
+                        <option value="Period Pain">Period Pain</option>
+                        <option value="Post Traumatic Stress Disorder">Post Traumatic Stress Disorder</option>
+                        <option value="Postpartum Depression">Postpartum Depression</option>
+                        <option value="Premenstrual Dysphoric Disorder">Premenstrual Dysphoric Disorder</option>
+                        <option value="Premenstrual Dysphoric Disorder (Off-label)">Premenstrual Dysphoric Disorder (Off-label)</option>
+                        <option value="Rheumatoid Arthritis">Rheumatoid Arthritis</option>
+                        <option value="Sciatica">Sciatica</option>
+                        <option value="Social Anxiety Disorder">Social Anxiety Disorder</option>
+                        <option value="Type 2 Diabetes">Type 2 Diabetes</option>
+                        <option value="Ulcer">Ulcer</option>
+                        <option value="Urticaria">Urticaria</option>
                     </select>
                 </div>
                 
@@ -1082,15 +1117,10 @@
         
         // Next step
         function nextStep() {
-            if (currentStep === 1) { // Logic for moving from Step 1 to Step 2
+            if (currentStep === 1) { // From Ongoing Diseases to Disease Meds
                 // Validate diseases selection
                 const checkboxes = document.querySelectorAll('#diseasesGrid input[type="checkbox"]:checked');
                 selectedDiseases = Array.from(checkboxes).map(cb => cb.value);
-                
-                if (selectedDiseases.length === 0) {
-                    alert('Please select at least one ongoing disease');
-                    return; // Stop if no disease is selected
-                }
                 
                 // --- Dynamically build Step 2 UI ---
                 const medicineListContainer = document.getElementById('medicineList');
@@ -1127,7 +1157,7 @@
                 currentStep = 2;
                 document.querySelector('.step-content[data-step="2"]').classList.add('active');
                 
-            } else if (currentStep === 2) { // Logic for moving from Step 2 to Step 3
+            } else if (currentStep === 2) { // From Disease Meds to New Condition
                 // Validate medicines
                 currentMedicines = [];
                 const diseaseGroups = document.querySelectorAll('.medicines-for-disease');
@@ -1203,7 +1233,14 @@
 
         // Remove medicine
         function removeMedicine(btn) {
-            btn.closest('.medicine-item').remove();
+            const item = btn.closest('.medicine-item');
+            const container = item.parentElement;
+            item.remove();
+            const remainingItems = container.querySelectorAll('.medicine-item');
+            if (remainingItems.length === 1) {
+                const removeBtn = remainingItems[0].querySelector('.remove-btn');
+                if(removeBtn) removeBtn.style.display = 'none';
+            }
         }
         
         // Analyze and predict

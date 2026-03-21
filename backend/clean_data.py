@@ -4,7 +4,7 @@ import os
 # Define paths
 script_dir = os.path.dirname(os.path.abspath(__file__))
 data_dir = os.path.join(script_dir, "../data")
-target_file = os.path.join(data_dir, "specific_medicine_data.csv")
+target_file = os.path.join(data_dir, "final_real_fixed_rows.csv")
 additional_effects_file = os.path.join(data_dir, "additional_side_effects.csv")
 
 def run_cleaning():
@@ -47,7 +47,9 @@ def run_cleaning():
         # Remove rows with empty Medicine Name
         if 'Medicine Name' in df.columns:
             df.dropna(subset=['Medicine Name'], inplace=True)
-            
+            # Standardize casing of medicine names to Title Case for consistency
+            df['Medicine Name'] = df['Medicine Name'].astype(str).str.title().str.strip()
+
         # Fill missing values for better UX
         if 'Side Effects' in df.columns:
             df['Side Effects'] = df['Side Effects'].fillna("Not Available")

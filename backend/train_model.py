@@ -21,7 +21,7 @@ if not os.path.exists(models_dir):
     os.makedirs(models_dir)
 
 print("Loading dataset...")
-target_csv = os.path.join(data_dir, "specific_medicine_data.csv")
+target_csv = os.path.join(data_dir, "final_real_fixed_rows.csv")
 print(f"Attempting to load: {os.path.abspath(target_csv)}")
 
 if not os.path.exists(target_csv):
@@ -41,6 +41,24 @@ try:
     # We only need to read it once to get classes and build the side_effects_map.
     df_for_scan = pd.read_csv(target_csv, low_memory=False)
     
+    # --- Pre-process the new CSV format ---
+    # Combine side effect columns
+    side_effect_cols = [f'sideEffect{i}' for i in range(5)]
+    existing_se_cols = [col for col in side_effect_cols if col in df_for_scan.columns]
+    if existing_se_cols:
+        df_for_scan['Side Effects'] = df_for_scan[existing_se_cols].astype(str).fillna('').agg(', '.join, axis=1)
+        df_for_scan['Side Effects'] = df_for_scan['Side Effects'].str.replace(r'\b(nan|None)\b', '', regex=True).str.replace(r'(, )+', ', ', regex=True).str.strip(', ')
+        print("✅ Combined multiple 'sideEffect' columns into a single 'Side Effects' column.")
+
+    # Combine 'InteractsWith' columns
+    interacts_with_cols = [f'InteractsWith{i}' for i in range(3)]
+    existing_iw_cols = [col for col in interacts_with_cols if col in df_for_scan.columns]
+    if existing_iw_cols:
+        df_for_scan['Interacts With'] = df_for_scan[existing_iw_cols].astype(str).fillna('').agg(', '.join, axis=1)
+        df_for_scan['Interacts With'] = df_for_scan['Interacts With'].str.replace(r'\b(nan|None)\b', '', regex=True).str.replace(r'(, )+', ', ', regex=True).str.strip(', ')
+        print("✅ Combined multiple 'InteractsWith' columns into a single 'Interacts With' column.")
+    # --- End Pre-processing ---
+
     all_classes = sorted(list(df_for_scan['Medicine Name'].dropna().unique()))
     
     # Create a map of medicine names to their side effects for quick lookup later.
@@ -92,13 +110,30 @@ try:
     if 'Medicine Name' in df.columns:
         df = df.dropna(subset=['Medicine Name'])
 
+        # --- Pre-process the new CSV format ---
+        # This is repeated from Pass 1 to ensure the dataframe for training is correct.
+        # Combine side effect columns
+        side_effect_cols = [f'sideEffect{i}' for i in range(5)]
+        existing_se_cols = [col for col in side_effect_cols if col in df.columns]
+        if existing_se_cols:
+            df['Side Effects'] = df[existing_se_cols].astype(str).fillna('').agg(', '.join, axis=1)
+            df['Side Effects'] = df['Side Effects'].str.replace(r'\b(nan|None)\b', '', regex=True).str.replace(r'(, )+', ', ', regex=True).str.strip(', ')
+
+        # Combine 'InteractsWith' columns
+        interacts_with_cols = [f'InteractsWith{i}' for i in range(3)]
+        existing_iw_cols = [col for col in interacts_with_cols if col in df.columns]
+        if existing_iw_cols:
+            df['Interacts With'] = df[existing_iw_cols].astype(str).fillna('').agg(', '.join, axis=1)
+            df['Interacts With'] = df['Interacts With'].str.replace(r'\b(nan|None)\b', '', regex=True).str.replace(r'(, )+', ', ', regex=True).str.strip(', ')
+        # --- End Pre-processing ---
+
         # Prepare Features
         exclude_cols = ['Medicine Name', 'Excellent Review %', 'Average Review %', 'Poor Review %']
         feature_cols = [col for col in df.columns if col not in exclude_cols and df[col].dtype == 'object']
         df[feature_cols] = df[feature_cols].fillna('')
 
         # Process in batches to save memory
-        batch_size = 5000
+        batch_size = 2000
         print(f"   Processing in batches of {batch_size} rows...")
         for start in range(0, len(df), batch_size):
             end = min(start + batch_size, len(df))

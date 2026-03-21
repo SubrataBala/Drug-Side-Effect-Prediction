@@ -30,9 +30,14 @@ def load_models():
         with open(vectorizer_path, "rb") as f:
             vectorizer = pickle.load(f)
         with open(side_effects_path, "rb") as f:
-            side_effects_map = pickle.load(f)
+            original_side_effects_map = pickle.load(f)
         with open(interaction_path, "rb") as f:
-            interaction_map = pickle.load(f)
+            original_interaction_map = pickle.load(f)
+
+        # Convert map keys to lowercase for case-insensitive lookups
+        side_effects_map = {k.lower(): v for k, v in original_side_effects_map.items()}
+        interaction_map = {k.lower(): v for k, v in original_interaction_map.items()}
+
         return model, vectorizer, side_effects_map, interaction_map
     except Exception as e:
         print(f"An error occurred while loading models: {e}")
@@ -40,30 +45,45 @@ def load_models():
 
 def get_side_effects(medicine_name, side_effects_map):
     """Looks up side effects from the pre-loaded map."""
-    side_effects_str = side_effects_map.get(medicine_name, "Side effect data not available in the trained model.")
-    if isinstance(side_effects_str, str) and "not available" in side_effects_str:
-        return [{"effect": side_effects_str, "severity": "low"}] # Return as a list for consistency
-    # Assuming side_effects_str is a comma-separated string of effects
-    # For now, we'll just return a single entry with 'medium' severity for each parsed effect
-    return [{"effect": s.strip(), "severity": "medium"} for s in side_effects_str.split(',') if s.strip()]
+    if not medicine_name:
+        return [{"effect": "Side effect data not available for this medicine.", "severity": "low"}]
+
+    # Use lowercased and stripped medicine name for robust, case-insensitive lookup
+    lookup_key = medicine_name.strip().lower()
+    side_effects_str = side_effects_map.get(lookup_key)
+
+    # If the medicine is not found or has no side effects listed, return a default message.
+    if not side_effects_str or not side_effects_str.strip() or "not available" in side_effects_str.lower():
+        return [{"effect": "Side effect data not available for this medicine.", "severity": "low"}]
+
+    # Split the string and create the list of side effect objects
+    effects = [{"effect": s.strip(), "severity": "medium"} for s in side_effects_str.split(',') if s.strip()]
+
+    # If splitting resulted in an empty list (e.g., the string was just ',,'), return a default.
+    if not effects:
+        return [{"effect": "No specific side effects listed in the dataset.", "severity": "low"}]
+    return effects
 
 def get_interaction(med1, med2, interaction_map):
     """Checks for interactions between two medicines using the pre-loaded map."""
-    if not interaction_map or not med1 or not med2:
+    if not med1 or not med2:
+        return "Cannot check interaction for empty medicine name."
+
+    if not interaction_map:
         return "Interaction data not available."
     
-    med1_lower, med2_lower = med1.lower(), med2.lower()
+    med1_lower, med2_lower = med1.strip().lower(), med2.strip().lower()
 
     # Check interaction from med1's perspective
-    if med1 in interaction_map:
-        med1_info = interaction_map[med1]
+    if med1_lower in interaction_map:
+        med1_info = interaction_map[med1_lower]
         interacts_with_lower = [d.lower() for d in med1_info.get('interacts_with', [])]
         if med2_lower in interacts_with_lower:
             return med1_info.get('effect', f"Interaction found between {med1} and {med2}, but no description is available.")
 
     # Check interaction from med2's perspective
-    if med2 in interaction_map:
-        med2_info = interaction_map[med2]
+    if med2_lower in interaction_map:
+        med2_info = interaction_map[med2_lower]
         interacts_with_lower = [d.lower() for d in med2_info.get('interacts_with', [])]
         if med1_lower in interacts_with_lower:
             return med2_info.get('effect', f"Interaction found between {med2} and {med1}, but no description is available.")

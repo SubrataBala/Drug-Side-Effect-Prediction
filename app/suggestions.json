@@ -1,0 +1,42 @@
+{
+    "Diabetes": [
+        "Metformin", "Glimepiride", "Sitagliptin", "Insulin Glargine", "Regular insulin", 
+        "Dapagliflozin", "Pioglitazone", "Acarbose"
+    ],
+    "Hypertension": [
+        "Amlodipine", "Losartan", "Telmisartan", "Atenolol", "Metoprolol", 
+        "Hydrochlorothiazide", "Enalapril"
+    ],
+    "Heart Disease": [
+        "Aspirin", "Clopidogrel", "Atorvastatin", "Nitroglycerin", "Metoprolol", 
+        "Ramipril", "Isosorbide mononitrate"
+    ],
+    "Tuberculosis": [
+        "Isoniazid", "Rifampicin", "Pyrazinamide", "Ethambutol", "Streptomycin", 
+        "Bedaquiline", "Levofloxacin"
+    ],
+    "Asthma": [
+        "Salbutamol inhaler", "Budesonide", "Formoterol", "Montelukast", "Theophylline", 
+        "Ipratropium bromide", "Fluticasone"
+    ],
+    "Cancer": [
+        "Cyclophosphamide", "Methotrexate", "Doxorubicin", "Cisplatin", "Paclitaxel", 
+        "Imatinib", "Pembrolizumab"
+    ],
+    "Dengue": [
+        "Paracetamol (Acetaminophen)", "Oral Rehydration Salts (ORS)", "IV Fluids", 
+        "Platelet transfusion", "Vitamin C", "Electrolyte solutions"
+    ],
+    "Malaria": [
+        "Chloroquine", "Artemether-Lumefantrine", "Artesunate", "Quinine", "Primaquine", 
+        "Mefloquine", "Doxycycline"
+    ],
+    "Thyroid Disorder": [
+        "Levothyroxine", "Methimazole", "Propylthiouracil (PTU)", "Propranolol", 
+        "Carbimazole", "Radioactive iodine"
+    ],
+    "Mental Health Disorders": [
+        "Fluoxetine", "Sertraline", "Escitalopram", "Alprazolam", "Diazepam", 
+        "Risperidone", "Olanzapine"
+    ]
+}

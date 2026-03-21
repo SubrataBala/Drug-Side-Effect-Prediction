@@ -26,7 +26,7 @@ print(f"Attempting to load: {os.path.abspath(target_csv)}")
 
 if not os.path.exists(target_csv):
     print(f"❌ Error: Training file '{os.path.basename(target_csv)}' not found in '{os.path.abspath(data_dir)}'.")
-    print("   Please run 'extract_specific_data.py' and 'clean_data.py' first to generate it.")
+    print("   Please ensure this file exists. You may need to run 'clean_data.py' to generate or update it.")
     exit(1)
 
 csv_files = [target_csv]
@@ -61,9 +61,13 @@ try:
 
     all_classes = sorted(list(df_for_scan['Medicine Name'].dropna().unique()))
     
-    # Create a map of medicine names to their side effects for quick lookup later.
-    # This is more efficient than searching the dataframe in the app.
-    side_effects_map = dict(zip(df_for_scan['Medicine Name'], df_for_scan['Side Effects']))
+    # Create a map of medicine names to their side effects for quick lookup.
+    # This is more robust than a simple zip, as it handles multiple rows per medicine.
+    # It prioritizes the first non-empty side effect string found for each medicine.
+    df_for_scan['Side Effects'] = df_for_scan['Side Effects'].fillna('').astype(str)
+    side_effects_map_df = df_for_scan[df_for_scan['Side Effects'].str.strip() != ''][['Medicine Name', 'Side Effects']].copy()
+    side_effects_map = side_effects_map_df.groupby('Medicine Name')['Side Effects'].first().to_dict()
+    print("✅ Created side effects map for quick lookup.")
     
     # Create a map for interactions for quick lookup in the app
     interaction_map = {}

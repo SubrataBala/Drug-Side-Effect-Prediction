@@ -1,4 +1,5 @@
-backend/saved_models/*.pkl
-data/remaining_data.csv
-data/cleaned_medicine_data.csv
-data/raw/
+# Python cache
+__pycache__/
+
+# Environment variables - DO NOT COMMIT
+.env

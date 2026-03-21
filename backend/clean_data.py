@@ -47,8 +47,8 @@ def run_cleaning():
         # Remove rows with empty Medicine Name
         if 'Medicine Name' in df.columns:
             df.dropna(subset=['Medicine Name'], inplace=True)
-            # Standardize casing of medicine names to Title Case for consistency
-            df['Medicine Name'] = df['Medicine Name'].astype(str).str.title().str.strip()
+            # Standardize casing of medicine names to lowercase for full consistency
+            df['Medicine Name'] = df['Medicine Name'].astype(str).str.lower().str.strip()
 
         # Fill missing values for better UX
         if 'Side Effects' in df.columns:
